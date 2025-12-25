@@ -361,14 +361,17 @@
     const paramsi = new URLSearchParams(window.location.search);
     const status = paramsi.get("status");
 
-    if (status === "success") {
-      alert("Complaint sent successfully!");
-      window.location.href = "/complaint";
+    // Handle complaint status popups
+    if (status === "complaint-success") {
+      openPopup("Complaint sent successfully!");
+      // Clean up URL after showing popup
+      window.history.replaceState({}, document.title, "/");
     }
 
-    if (status === "error") {
-      alert("Unable to make a complaint. Please try again.");
-      window.location.href = "/complaint";
+    if (status === "complaint-error") {
+      openPopup("Complaint submission failed. Please try again.");
+      // Clean up URL after showing popup
+      window.history.replaceState({}, document.title, "/");
     }
 
 

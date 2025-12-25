@@ -147,6 +147,23 @@
   </table>
 </div>
 
+<h2 style="margin-top: 30px;">Complaints</h2>
+
+<div class="table-container">
+  <table>
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Complaint Text</th>
+        <th>Time</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{COMPLAINT_ROWS}}
+    </tbody>
+  </table>
+</div>
+
 
 <footer class="footer reveal" style="background-color: rgb(46, 46, 46); color: grey; margin-top: 12px;">
       <div class="footer-container">
@@ -214,7 +231,7 @@
             .then(data => {
                 const btn = document.getElementById("authBtn");
                 if (data.loggedIn) {
-                    btn.textContent = "PRO";
+                    btn.textContent = "Home";
                     btn.onclick = () => window.location.href = "/pro";
                 } else {
                     btn.textContent = "login";
@@ -227,7 +244,7 @@
             .then(data => {
                 const btni = document.getElementById("authBtni");
                 if (data.loggedIn) {
-                    btni.textContent = "PRO";
+                    btni.textContent = "Home";
                     btni.onclick = () => window.location.href = "/pro";
                 } else {
                     btni.textContent = "login";

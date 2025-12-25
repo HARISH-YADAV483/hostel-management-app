@@ -13,6 +13,7 @@ const sharedSession = require("express-socket.io-session");
 require("dotenv").config();
 const User = require("./models/User");
 const Record = require("./models/Record");
+const Complaint = require("./models/Complaint");
 const app = express();
 
 // 🔹 ADD THIS near the top of app.js (after imports)
@@ -59,7 +60,7 @@ mongoose.connect(process.env.MONGODB_URI)
     // Defensive fix: drop old `email_1` unique index that can cause
     // duplicate-key errors when documents don't have an `email` field.
     try {
-      const coll = mongoose.connection.db.collection("user");
+      const coll = mongoose.connection.db.collection("users");
       const indexes = await coll.indexes();
       const hasEmailIndex = indexes.some(idx => idx.name === "email_1");
       if (hasEmailIndex) {
@@ -300,10 +301,27 @@ const rows = records.map(r => `
   </tr>
 `).join("");
 
+  // 📝 Generate complaint rows
+  const complaints = await Complaint.find().lean();
+
+const complaintRows = complaints.map(c => `
+  <tr>
+    <td>${c.email}</td>
+    <td>${c.complaintText}</td>
+    <td>${c.uploadTime}</td>
+  </tr>
+`).join("");
+
   // 🪄 Inject rows
   html = html.replace(
     "{{TABLE_ROWS}}",
     rows || "<tr><td colspan='5'>No data</td></tr>"
+  );
+
+  // 📝 Inject complaint rows
+  html = html.replace(
+    "{{COMPLAINT_ROWS}}",
+    complaintRows || "<tr><td colspan='3'>No complaints</td></tr>"
   );
 
   // 🚀 Send final page
@@ -455,7 +473,7 @@ app.post("/send-otp", async (req, res) => {
   otpStore[email] = otp;
 
   await transporter.sendMail({
-    from: "harish2puhaniya@gmail.com",
+    from: process.env.EMAIL_USER,
     to: email,
     subject: "Your OTP Code",
     text: `Your OTP is ${otp}`
@@ -498,38 +516,42 @@ app.get("/test-chat", (req, res) => {
 });
 
 
-// Send complaint email
+// Send complaint (save to database)
 app.post("/send-complaint", async (req, res) => {
   try {
     const userEmail = req.session.user.email;
     const complaintText = req.body.complaint;
 
-    // Email transporter
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: "harish2puhaniya@gmail.com",      // RECEIVER Gmail (or sender Gmail)
-        pass: "uvzxlytyobfjxnjl"         // Gmail App Password
-      }
+    // Validate input
+    if (!complaintText || complaintText.trim().length === 0) {
+      console.log("[COMPLAINT] Empty complaint text");
+      return res.redirect("/?status=complaint-error");
+    }
+
+    // Create timestamp
+    const now = new Date();
+    const uploadTime = now.toLocaleString("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short"
     });
 
-    const mailOptions = {
-      from: userEmail,
-      to: "yourgmail@gmail.com",          // Complaint receiver
-      subject: "New Complaint Received",
-      text: `Complaint from: ${userEmail}\n\n${complaintText}`,
-      replyTo: userEmail
-    };
+    // Save complaint to database
+    await Complaint.create({
+      email: userEmail,
+      complaintText: complaintText.trim(),
+      uploadTime: uploadTime
+    });
 
-    await transporter.sendMail(mailOptions);
+    console.log("[COMPLAINT] Complaint submitted successfully for:", userEmail);
 
-    res.redirect("/?status=success");
+    // ✅ success redirect
+    res.redirect("/?status=complaint-success");
 
   } catch (error) {
-    console.error(error);
+    console.error("[COMPLAINT] Error:", error);
 
     // ❌ failure redirect
-    res.redirect("/?status=error");
+    res.redirect("/?status=complaint-error");
   }
 });
 

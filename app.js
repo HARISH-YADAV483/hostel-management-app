@@ -2,7 +2,10 @@ const express = require("express");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const bodyParser = require("body-parser");
-const nodemailer = require("nodemailer");
+const sgMail = require("@sendgrid/mail");
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+// const nodemailer = require("nodemailer");
 const multer = require("multer");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -21,6 +24,7 @@ const app = express();
 
 const server = http.createServer(app);
 const io = new Server(server);
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 app.use(bodyParser.json());
 // Middleware
@@ -452,13 +456,13 @@ app.post("/upload-announcement", upload.single("pdf"), (req, res) => {
 const otpStore = {}; // { email: otp }
 
 // Email transporter
-const transporter = nodemailer.createTransport({
-  service: "gmail",
- auth: {
-  user: process.env.EMAIL_USER,
-  pass: process.env.EMAIL_PASS
-}
-});
+// const transporter = nodemailer.createTransport({
+//   service: "gmail",
+//  auth: {
+//   user: process.env.EMAIL_USER,
+//   pass: process.env.EMAIL_PASS
+// }
+// });
 
 // Generate OTP
 function generateOTP() {
@@ -466,22 +470,44 @@ function generateOTP() {
 }
 
 // Send OTP
+// app.post("/send-otp", async (req, res) => {
+//   const { email } = req.body;
+//   const otp = generateOTP();
+
+//   otpStore[email] = otp;
+
+  // await transporter.sendMail({
+  //   from: process.env.EMAIL_USER,
+  //   to: email,
+  //   subject: "Your OTP Code",
+  //   text: `Your OTP is ${otp}`
+  // });
+
+//   res.json({ message: "OTP sent to email" });
+// });
 app.post("/send-otp", async (req, res) => {
-  const { email } = req.body;
-  const otp = generateOTP();
+  try {
+    const { email } = req.body;
+    const otp = generateOTP();
 
-  otpStore[email] = otp;
+    otpStore[email] = otp;
 
-  await transporter.sendMail({
-    from: process.env.EMAIL_USER,
-    to: email,
-    subject: "Your OTP Code",
-    text: `Your OTP is ${otp}`
-  });
+    const msg = {
+      to: email,
+      from: process.env.SENDGRID_FROM_EMAIL,
+      subject: "Your OTP Code",
+      text: `Your OTP is ${otp}`,
+      html: `<h2>Your OTP</h2><p><b>${otp}</b></p>`
+    };
 
-  res.json({ message: "OTP sent to email" });
+    await sgMail.send(msg);
+
+    res.json({ message: "OTP sent to email" });
+  } catch (error) {
+    console.error("SendGrid error:", error);
+    res.status(500).json({ message: "Failed to send OTP" });
+  }
 });
-
 // Verify OTP
 app.post("/verify-otp", (req, res) => {
   const { email, otp } = req.body;
